@@ -22,4 +22,4 @@ Record the outcome and the date in the release pull request.
 
 | Version | Date | Decision | Notes |
 | --- | --- | --- | --- |
-| v0.1.0 | 2026-10-07 | Pending | First release. Decision recorded after CI runs on the release commit. |
+| v0.1.0 | 2026-10-07 | Go | First release. Criteria 1–8 met. CI: https://github.com/kingdomb/release-control-tower/actions/runs/37586468077 (151 unit, 15 e2e incl. layout QA and axe). |
