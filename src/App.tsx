@@ -164,7 +164,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 scroll-mt-4" ref={viewRef}>
           <WhatIfBar store={store} onOpenRelease={onSelect} />
           {committed.releases.length === 0 && !draft ? (

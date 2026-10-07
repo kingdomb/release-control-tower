@@ -20,7 +20,7 @@ export function Strip({ release, conflicts, focused, draft, timeLabel }: Props) 
     >
       <span className="strip-bar" aria-hidden="true" />
       <span className="strip-body">
-        {timeLabel && <span className="shrink-0 tabular-nums text-ink-soft">{timeLabel}</span>}
+        {timeLabel && <span className="strip-time shrink-0 tabular-nums text-ink-soft">{timeLabel}</span>}
         <span className="strip-title">{release.title}</span>
         {conflicts.length > 0 && (
           <span
