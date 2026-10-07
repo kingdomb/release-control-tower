@@ -325,7 +325,8 @@ function changeRequestFor(c: Ctx, r: Release): ChangeRequest {
   return {
     releaseId: r.id,
     description: CR_TEXT.description(r),
-    impactRisk: c.rng.pick(CR_TEXT.impactRisk),
+    // Standard changes are pre-approved and low-risk by definition.
+    impactRisk: c.rng.pick(r.changeClass === 'standard' ? CR_TEXT.impactRisk.filter((t) => t.startsWith('Low')) : CR_TEXT.impactRisk),
     implementationPlan: c.rng.pick(CR_TEXT.implementationPlan),
     rollbackPlan: c.rng.pick(CR_TEXT.rollbackPlan),
     testPlan: c.rng.pick(CR_TEXT.testPlan),

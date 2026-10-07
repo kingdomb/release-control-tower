@@ -35,12 +35,19 @@ test.describe('axe accessibility (WCAG 2.2 AA rules)', () => {
     await panel.locator('ol > li').first().getByRole('button').first().click();
     await check(page, 'drawer');
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const importBtn = page.getByRole('button', { name: 'Import', exact: true });
+    await importBtn.click();
     await check(page, 'import');
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Export .ics' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(importBtn).toBeFocused();
+    const exportBtn = page.getByRole('button', { name: 'Export .ics' });
+    await exportBtn.click();
     await check(page, 'export');
-    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5); // outside the dialog
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(exportBtn).toBeFocused();
     await page.getByRole('button', { name: 'CAB agenda' }).click();
     await check(page, 'cab');
   });
@@ -68,5 +75,26 @@ test.describe('axe accessibility (WCAG 2.2 AA rules)', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(first).toBeFocused();
+  });
+
+  test('keyboard: Tab reaches the timeline strips, and focus is visible', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await open(page);
+    await page.getByRole('button', { name: 'Timeline by team' }).click();
+    await page.locator('body').click({ position: { x: 2, y: 2 } });
+    let reached = false;
+    for (let i = 0; i < 80 && !reached; i++) {
+      await page.keyboard.press('Tab');
+      reached = await page.evaluate(() => !!document.activeElement?.closest('[data-track]'));
+    }
+    expect(reached, 'a strip in the timeline is reachable with Tab').toBe(true);
+    const outline = await page.evaluate(() => {
+      const s = getComputedStyle(document.activeElement!);
+      return { style: s.outlineStyle, width: parseFloat(s.outlineWidth), color: s.outlineColor };
+    });
+    expect(outline.style).not.toBe('none');
+    expect(outline.width).toBeGreaterThanOrEqual(2);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
   });
 });

@@ -140,3 +140,16 @@ test('ITIL change-class badge explains itself on focus', async ({ page }) => {
   await expect(page.getByRole('tooltip')).toContainText(/pre-approved|risk-assessed|critical outage/);
   await page.keyboard.press('Escape');
 });
+
+test('month view shades only the part of a day a window covers', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Next month' }).click();
+  // The quarter-close blackout starts Tue 10 Nov 19:00 New York time: 10 Nov is shaded from ~79% of the cell.
+  const first = page.locator('td.fc-daygrid-day[data-date="2026-11-10"] .fc-bg-event.band-blackout');
+  await expect(first).toHaveClass(/band-partial/);
+  const from = await first.evaluate((el) => parseFloat((el as HTMLElement).style.getPropertyValue('--from')));
+  expect(from).toBeCloseTo((19 / 24) * 100, 0);
+  const full = page.locator('td.fc-daygrid-day[data-date="2026-11-11"] .fc-bg-event.band-blackout');
+  await expect(full).not.toHaveClass(/band-partial/);
+});
+

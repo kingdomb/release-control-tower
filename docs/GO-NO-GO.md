@@ -22,4 +22,5 @@ Record the outcome and the date in the release pull request.
 
 | Version | Date | Decision | Notes |
 | --- | --- | --- | --- |
-| v0.1.0 | 2026-10-07 | Go | First release. Criteria 1–8 met. CI: https://github.com/kingdomb/release-control-tower/actions/runs/37586468077 (151 unit, 15 e2e incl. layout QA and axe). |
+| v0.1.0 | 2026-10-07 | Go | First release. Decision taken on CI run 37586468077 (merge commit); the tag was then placed on the following docs-only commit, whose gates passed in the deploy run 37588476673. Criterion 8 not applicable (no previous tag). Deviations: no pull request (milestones merged locally), so criteria 5 and 6 evidence is in the release report, not PR notes. |
+| v0.1.1 | 2026-10-07 | Pending | Fixes from the v0.1.0 release review. Record after CI on the tagged commit. |
