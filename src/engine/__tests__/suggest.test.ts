@@ -1,0 +1,175 @@
+import { describe, expect, it } from 'vitest';
+import type { Window } from '../../domain/types';
+import { evaluate } from '../evaluate';
+import { findSlots, slotIsClear } from '../suggest';
+import { at, baseDataset, fullCr, NY, rel, remainingTimedConflicts, UTC } from './fixtures';
+
+describe('suggested alternative windows', () => {
+  it('offers up to three slots, each at least a day apart, starting with the next free slot', async () => {
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'a', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T17:00') }),
+      ],
+    });
+    const slots = findSlots(ds, 'b', UTC);
+    expect(slots.map((s) => s.startAt)).toEqual([at('2026-03-10T16:00'), at('2026-03-11T16:00'), at('2026-03-12T16:00')]);
+    for (const s of slots) {
+      expect(Date.parse(s.endAt) - Date.parse(s.startAt)).toBe(2 * 3600_000);
+      expect(slotIsClear(ds, s, UTC)).toBe(true);
+      expect(await remainingTimedConflicts(ds, 'b', s.startAt, s.endAt, UTC)).toEqual([]);
+    }
+  });
+
+  it('every suggestion clears all time-based rules, not just the one that fired', async () => {
+    // Moving "b" past "a" would land in a blackout; the slot must skip it too.
+    const blackout: Window = {
+      id: 'bo',
+      kind: 'blackout',
+      name: 'Close',
+      scope: {},
+      startAt: at('2026-03-10T16:00'),
+      endAt: at('2026-03-11T00:00'),
+    };
+    const ds = baseDataset({
+      windows: [blackout],
+      releases: [
+        rel({ id: 'a', startAt: at('2026-03-10T13:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T15:00') }),
+      ],
+    });
+    const slots = findSlots(ds, 'b', UTC);
+    expect(slots.map((x) => x.startAt)).toEqual([at('2026-03-11T00:00'), at('2026-03-12T00:00'), at('2026-03-13T00:00')]);
+    for (const x of slots) expect(await remainingTimedConflicts(ds, 'b', x.startAt, x.endAt, UTC)).toEqual([]);
+  });
+
+  it('moves a Normal prod change into the next maintenance window', () => {
+    const maint = (day: number): Window => ({
+      id: `mw${day}`,
+      kind: 'maintenance',
+      name: 'Saturday',
+      scope: { environmentIds: ['prod'] },
+      startAt: at(`2026-03-${day}T14:00`),
+      endAt: at(`2026-03-${day}T22:00`),
+    });
+    const ds = baseDataset({
+      windows: [maint(14), maint(21)],
+      releases: [rel({ id: 'n', environmentId: 'prod', changeClass: 'normal', startAt: at('2026-03-12T14:00'), endAt: at('2026-03-12T16:00') })],
+      changeRequests: [fullCr('n')],
+    });
+    const [conflict] = evaluate(ds, UTC);
+    const reschedules = conflict!.suggestions.filter((s) => s.kind === 'reschedule');
+    expect(reschedules.map((s) => s.kind === 'reschedule' && s.startAt)).toEqual([at('2026-03-14T14:00'), at('2026-03-21T14:00')]);
+  });
+
+  it('shifts all-day releases by whole days', () => {
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'a', allDay: true, startAt: '2026-03-10', endAt: '2026-03-11' }),
+        rel({ id: 'b', allDay: true, startAt: '2026-03-10', endAt: '2026-03-11' }),
+      ],
+    });
+    expect(findSlots(ds, 'b', UTC, { count: 1 })[0]).toMatchObject({ startAt: '2026-03-11', endAt: '2026-03-12' });
+  });
+
+  it('suggests actions, not times, for completeness conflicts', () => {
+    const ds = baseDataset({ releases: [rel({ id: 'a', changeClass: 'normal', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T15:00') })] });
+    const [c] = evaluate(ds, UTC);
+    expect(c!.suggestions).toEqual([
+      { kind: 'action', releaseId: 'a', label: 'Add a rollback plan in the release drawer' },
+      { kind: 'action', releaseId: 'a', label: 'Add a test plan in the release drawer' },
+    ]);
+  });
+
+  it('offers ECAB sign-off first for an emergency change in a freeze', () => {
+    const ds = baseDataset({
+      windows: [{ id: 'fz', kind: 'freeze', name: 'Freeze', scope: {}, startAt: at('2026-03-10T00:00'), endAt: at('2026-03-11T00:00') }],
+      releases: [rel({ id: 'e', changeClass: 'emergency', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T15:00') })],
+      changeRequests: [fullCr('e')],
+    });
+    const [c] = evaluate(ds, UTC);
+    expect(c!.suggestions[0]).toEqual({ kind: 'action', releaseId: 'e', label: 'Record ECAB sign-off, or move it out of the window' });
+    expect(c!.suggestions.length).toBeLessThanOrEqual(3);
+    expect(c!.suggestions[1]).toMatchObject({ kind: 'reschedule', startAt: at('2026-03-11T00:00') });
+  });
+
+  it('says so when no slot is free within the horizon', () => {
+    const ds = baseDataset({
+      windows: [{ id: 'fz', kind: 'freeze', name: 'Long freeze', scope: {}, startAt: at('2026-03-01T00:00'), endAt: at('2026-06-01T00:00') }],
+      releases: [rel({ id: 'a', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T15:00') })],
+    });
+    const [c] = evaluate(ds, UTC);
+    expect(c!.suggestions).toEqual([{ kind: 'action', releaseId: 'a', label: 'No free slot in the next 28 days; replan manually' }]);
+  });
+
+  it('never moves an upstream release past the releases that depend on it', async () => {
+    // "api" sits in a blackout; "app" depends on it and starts 11 Mar 10:00.
+    const ds = baseDataset({
+      windows: [{ id: 'bo', kind: 'blackout', name: 'Close', scope: {}, startAt: at('2026-03-10T00:00'), endAt: at('2026-03-11T00:00') }],
+      releases: [
+        rel({ id: 'api', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T15:00') }),
+        rel({ id: 'app', productId: 'p3', startAt: at('2026-03-11T10:00'), endAt: at('2026-03-11T11:00') }),
+      ],
+      dependencies: [{ releaseId: 'app', dependsOnReleaseId: 'api' }],
+    });
+    const [c] = evaluate(ds, UTC);
+    const moves = c!.suggestions.filter((x) => x.kind === 'reschedule');
+    expect(moves.length).toBeGreaterThanOrEqual(1);
+    for (const m of moves) {
+      if (m.kind !== 'reschedule') continue;
+      expect(Date.parse(m.endAt)).toBeLessThanOrEqual(Date.parse(at('2026-03-11T10:00')));
+      expect(await remainingTimedConflicts(ds, 'api', m.startAt, m.endAt, UTC)).toEqual([]);
+    }
+  });
+
+  it('moves the dependent after its dependency for a dependency-order conflict', async () => {
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'api', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'app', productId: 'p3', startAt: at('2026-03-10T13:00'), endAt: at('2026-03-10T14:00') }),
+      ],
+      dependencies: [{ releaseId: 'app', dependsOnReleaseId: 'api' }],
+    });
+    const [c] = evaluate(ds, UTC);
+    expect(c!.rule).toBe('dependency-order');
+    const first = c!.suggestions[0]!;
+    expect(first).toMatchObject({ kind: 'reschedule', releaseId: 'app', startAt: at('2026-03-10T16:00') });
+    for (const m of c!.suggestions) {
+      if (m.kind === 'reschedule') expect(await remainingTimedConflicts(ds, 'app', m.startAt, m.endAt, UTC)).toEqual([]);
+    }
+  });
+
+  it('skips slots that would double-book the environment', async () => {
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'a', environmentId: 'stg', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', environmentId: 'stg', productId: 'p3', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T16:00') }),
+      ],
+      bookings: [{ id: 'qa', environmentId: 'stg', title: 'QA', owner: 'QA', startAt: at('2026-03-10T16:00'), endAt: at('2026-03-10T20:00') }],
+    });
+    const [first] = findSlots(ds, 'b', UTC);
+    expect(first!.startAt).toBe(at('2026-03-10T20:00'));
+    expect(await remainingTimedConflicts(ds, 'b', first!.startAt, first!.endAt, UTC)).toEqual([]);
+  });
+
+  it('shifts all-day releases by local days in a non-UTC zone', async () => {
+    const ds = baseDataset({
+      windows: [{ id: 'fz', kind: 'freeze', name: 'Freeze', scope: {}, allDay: true, startAt: '2026-03-10', endAt: '2026-03-12' }],
+      releases: [rel({ id: 'a', allDay: true, startAt: '2026-03-11', endAt: '2026-03-12' })],
+    });
+    const slots = findSlots(ds, 'a', NY);
+    expect(slots.map((x) => x.startAt)).toEqual(['2026-03-12', '2026-03-13', '2026-03-14']);
+    for (const x of slots) expect(await remainingTimedConflicts(ds, 'a', x.startAt, x.endAt, NY)).toEqual([]);
+  });
+
+  it('gives a booking-only clash an action, since there is no release to move', () => {
+    const ds = baseDataset({
+      bookings: [
+        { id: 'q1', environmentId: 'stg', title: 'A', owner: 'QA', startAt: at('2026-03-10T09:00'), endAt: at('2026-03-10T15:00') },
+        { id: 'q2', environmentId: 'stg', title: 'B', owner: 'SRE', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T18:00') },
+      ],
+    });
+    const [c] = evaluate(ds, UTC);
+    expect(c!.suggestions).toEqual([{ kind: 'action', releaseId: '', label: 'Move one of the bookings; no release is involved' }]);
+  });
+});
