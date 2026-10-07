@@ -11,7 +11,7 @@ export default {
         approach: { DEFAULT: '#1D5BB8', tint: '#E3ECF9' },
         alert: { DEFAULT: '#B4122B', tint: '#FBE7EA' },
         amber: { DEFAULT: '#B9770E', tint: '#FBF1DF' },
-        go: { DEFAULT: '#2E7D4F', tint: '#E4F2EA' },
+        go: { DEFAULT: '#256B42', tint: '#E4F2EA' },
       },
       fontFamily: {
         sans: ['Barlow', 'system-ui', 'sans-serif'],

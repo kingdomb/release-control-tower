@@ -10,7 +10,7 @@
   --approach: #1d5bb8;
   --alert: #b4122b;
   --amber: #b9770e;
-  --go: #2e7d4f;
+  --go: #256b42;
 
   /* FullCalendar theme */
   --fc-border-color: var(--rule);
@@ -259,4 +259,34 @@ body {
 .fc .fc-list-event-title {
   width: 100%;
   max-width: 0;
+}
+
+/* Narrow month cells (e.g. 1024px with the conflict panel): drop the time so the title shows. */
+.fc .fc-daygrid-day-frame {
+  container-type: inline-size;
+}
+@container (max-width: 125px) {
+  .fc-daygrid-event .strip-time {
+    display: none;
+  }
+}
+
+/* Days outside the month stay distinguishable but readable (FullCalendar fades them to 30%). */
+.fc .fc-day-other .fc-daygrid-day-top {
+  opacity: 1;
+}
+.fc .fc-day-other .fc-daygrid-day-number {
+  color: #6b7682;
+}
+.fc .fc-daygrid-more-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+@media (pointer: coarse) {
+  .fc .fc-daygrid-more-link {
+    min-height: 44px;
+  }
 }

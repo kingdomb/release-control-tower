@@ -55,6 +55,7 @@ function fcView(mode: CalendarMode, narrow: boolean) {
 
 export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, draftIds, timeZone, focusDate, onSelect, onMove }: Props) {
   const ref = useRef<FullCalendar>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
   const view = fcView(mode, narrow);
 
@@ -106,8 +107,15 @@ export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, 
     );
   };
 
+  // FullCalendar's arrow icons are role="img" without a name; the buttons already have one.
+  const hideIcons = () =>
+    wrapper.current?.querySelectorAll('.fc-icon').forEach((el) => {
+      el.removeAttribute('role');
+      el.setAttribute('aria-hidden', 'true');
+    });
+
   return (
-    <div className="rounded border border-rule bg-white p-2 sm:p-3">
+    <div ref={wrapper} className="rounded border border-rule bg-white p-2 sm:p-3">
       <FullCalendar
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -126,6 +134,9 @@ export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, 
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         events={events}
+        viewDidMount={hideIcons}
+        datesSet={hideIcons}
+        moreLinkDidMount={(arg) => arg.el.setAttribute('role', 'button')}
         editable
         eventDurationEditable
         eventDrop={handleChange}

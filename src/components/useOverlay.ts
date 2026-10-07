@@ -28,12 +28,11 @@ export function useOverlay(open: boolean, onClose: () => void, panelRef: RefObje
       if (panel && !panel.contains(e.target as Node)) closeRef.current();
     };
     document.addEventListener('keydown', onKey);
-    // Defer so the click that opened the overlay does not immediately close it.
-    const t = window.setTimeout(() => document.addEventListener('pointerdown', onPointer), 0);
+    // The pointerdown that opened the overlay fired before this effect, so it cannot close it.
+    document.addEventListener('pointerdown', onPointer);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
-      window.clearTimeout(t);
       const target = opener.current;
       if (target && document.contains(target)) target.focus();
     };
