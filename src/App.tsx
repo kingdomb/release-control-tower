@@ -1,14 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { ConflictPanel } from './components/ConflictPanel';
 import { DemoBanner } from './components/DemoBanner';
 import { Header, type HeaderAction } from './components/Header';
+import { ReleaseDrawer } from './components/ReleaseDrawer';
 import { ScopeControls, ViewSwitcher, type ViewMode } from './components/Toolbar';
-import { DAY, toInterval } from './domain/time';
-import type { Conflict, Dataset, Id } from './domain/types';
-import { useStore } from './state/store';
+import { useOverlay } from './components/useOverlay';
+import { WhatIfBar } from './components/WhatIfBar';
+import { DAY, startOfLocalDay, toInterval } from './domain/time';
+import type { Conflict, Dataset, Id, Suggestion } from './domain/types';
+import { useStore } from './state/useStore';
 import { CalendarView, type MoveRequest } from './views/CalendarView';
 import { environmentLanes, teamLanes } from './views/lanes';
 import { conflictsByRelease, integrated, visibleConflicts, visibleReleases, visibleWindows, type Scope } from './views/model';
-import { startOfLocalDay, Swimlane } from './views/Swimlane';
+import { Swimlane } from './views/Swimlane';
 
 const EMPTY: Conflict[] = [];
 
@@ -52,18 +56,50 @@ export default function App() {
     [store],
   );
 
-  const onSelect = useCallback((id: Id) => setFocusIds([id]), []);
+  const [openId, setOpenId] = useState<Id | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useOverlay(panelOpen, () => setPanelOpen(false), panelRef);
+  const viewRef = useRef<HTMLDivElement>(null);
+
+  const onSelect = useCallback((id: Id) => {
+    setFocusIds([id]);
+    setOpenId(id);
+  }, []);
 
   const focusOn = (ids: Id[]) => {
     setFocusIds(ids);
-    const first = ds.releases.find((r) => ids.includes(r.id));
+    setPanelOpen(false);
+    const first = ds.releases
+      .filter((r) => ids.includes(r.id))
+      .sort((a, b) => toInterval(a, tz).start - toInterval(b, tz).start)[0];
     if (first) {
       const t = toInterval(first, tz).start;
       setFocusDate(t);
       setTimelineStart(startOfLocalDay(t, tz) - 2 * DAY);
+      // Leave scope if the focused release is outside the current team filter.
+      if (!releases.some((r) => r.id === first.id)) setScope(integrated);
     }
+    viewRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
-  void focusOn;
+
+  const applySuggestion = (sug: Extract<Suggestion, { kind: 'reschedule' }>) => {
+    setPanelOpen(false);
+    onMove({ releaseId: sug.releaseId, startAt: sug.startAt, endAt: sug.endAt });
+    focusOn([sug.releaseId]);
+  };
+
+  const panelProps = {
+    ds,
+    conflicts: shownConflicts,
+    timeZone: tz,
+    onFocus: focusOn,
+    onOpenRelease: (id: Id) => {
+      setPanelOpen(false);
+      onSelect(id);
+    },
+    onApply: applySuggestion,
+  };
 
   const actions: HeaderAction[] = [
     { id: 'undo', label: 'Undo', onClick: store.undo, disabled: !store.canUndo },
@@ -91,21 +127,26 @@ export default function App() {
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-end gap-3 px-4 py-3">
           <ViewSwitcher value={view} onChange={setView} />
           <ScopeControls ds={committed} scope={scope} onChange={changeScope} lastTeamId={lastTeamId} />
-          <p className="ml-auto flex min-h-[44px] items-center gap-2 text-sm" aria-live="polite">
-            <span
-              className={`inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full px-2 font-semibold ${
-                shownConflicts.length ? 'bg-alert text-white' : 'bg-go-tint text-go'
-              }`}
+          <div className="ml-auto">
+            <button
+              type="button"
+              className="btn lg:hidden"
+              onClick={() => setPanelOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={panelOpen}
             >
-              {shownConflicts.length}
-            </span>
-            <span>{shownConflicts.length === 1 ? 'conflict' : 'conflicts'} in view</span>
-          </p>
+              <ConflictCount count={shownConflicts.length} />
+            </button>
+            <p className="hidden min-h-[44px] items-center gap-1.5 text-sm font-medium lg:flex" aria-live="polite">
+              <ConflictCount count={shownConflicts.length} />
+            </p>
+          </div>
         </div>
       </div>
 
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4">
-        <div className="min-w-0">
+      <main className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 scroll-mt-4" ref={viewRef}>
+          <WhatIfBar store={store} onOpenRelease={onSelect} />
           {committed.releases.length === 0 && !draft ? (
             <EmptyState onLoadDemo={store.loadDemo} />
           ) : lanes ? (
@@ -138,8 +179,47 @@ export default function App() {
           )}
           <Legend />
         </div>
+        <aside className="hidden min-w-0 lg:block" aria-label="Conflict panel">
+          <div className="sticky top-4 h-[calc(100dvh-2rem)] overflow-hidden rounded border border-rule bg-white">
+            <ConflictPanel {...panelProps} />
+          </div>
+        </aside>
       </main>
+
+      {panelOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-ink/30 lg:hidden">
+          <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="conflict-heading-mobile" className="flex h-dvh w-full max-w-[28rem] flex-col bg-white shadow-2xl">
+            <div className="flex justify-end border-b border-rule p-2">
+              <button type="button" className="btn" onClick={() => setPanelOpen(false)} aria-label="Close conflicts" data-autofocus>
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <ConflictPanel {...panelProps} headingId="conflict-heading-mobile" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openId && <ReleaseDrawer key={openId} store={store} releaseId={openId} onClose={() => setOpenId(null)} />}
     </div>
+  );
+}
+
+function ConflictCount({ count }: { count: number }) {
+  return (
+    <>
+      <span
+        className={`inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full px-2 font-semibold ${
+          count ? 'bg-alert text-white' : 'bg-go-tint text-go'
+        }`}
+      >
+        {count}
+      </span>
+      <span>{count === 1 ? 'conflict' : 'conflicts'} in view</span>
+    </>
   );
 }
 

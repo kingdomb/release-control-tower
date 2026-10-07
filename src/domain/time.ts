@@ -133,3 +133,6 @@ export function formatRange(iv: Interval, timeZone: string): string {
   }
   return `${formatShort(iv.start, timeZone)} – ${formatShort(iv.end, timeZone)}`;
 }
+
+/** Local midnight (in `timeZone`) of the day containing `t`. */
+export const startOfLocalDay = (t: number, timeZone: string) => dateToUtc(dayKey(t, timeZone), timeZone);

@@ -1,5 +1,4 @@
 import type { Conflict, Release } from '../domain/types';
-import { CHANGE_CLASS, RULE_LABEL } from './model';
 
 interface Props {
   release: Release;
@@ -34,13 +33,4 @@ export function Strip({ release, conflicts, focused, draft, timeLabel }: Props) 
       </span>
     </div>
   );
-}
-
-/** Accessible name and native tooltip for a strip. */
-export function stripDescription(release: Release, conflicts: Conflict[], when: string): string {
-  const head = `${release.title}, ${CHANGE_CLASS[release.changeClass].label} change, ${when}`;
-  if (!conflicts.length) return `${head}. No conflicts.`;
-  return `${head}. ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}: ${conflicts
-    .map((c) => `${RULE_LABEL[c.rule]}: ${c.message}`)
-    .join(' ')}`;
 }

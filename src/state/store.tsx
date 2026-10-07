@@ -1,18 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { DataSource } from '../data/DataSource';
 import { SCHEMA_VERSION } from '../data/DataSource';
 import { generateSeed } from '../data/seed/generate';
-import { emptyDataset, type Conflict, type Dataset } from '../domain/types';
-import { diffConflicts, evaluate, type ConflictDiff } from '../engine/evaluate';
+import { emptyDataset, type Dataset } from '../domain/types';
+import { diffConflicts, evaluate } from '../engine/evaluate';
+import { StoreContext, type Draft, type Store } from './useStore';
 
 const MAX_UNDO = 50;
-
-export interface Draft {
-  dataset: Dataset;
-  label: string;
-  /** Release being moved or edited, for ripple display. */
-  releaseId: string;
-}
 
 interface State {
   loaded: boolean;
@@ -50,28 +44,7 @@ function reducer(state: State, a: Action): State {
   }
 }
 
-export interface Store {
-  loaded: boolean;
-  dataset: Dataset;
-  isDemo: boolean;
-  timeZone: string;
-  conflicts: Conflict[];
-  draft: Draft | null;
-  /** Conflicts of the draft and how they differ from the committed data. */
-  draftConflicts: Conflict[] | null;
-  draftDiff: ConflictDiff | null;
-  canUndo: boolean;
-  lastChange: string | null;
-  commit: (dataset: Dataset, label: string) => void;
-  setDraft: (draft: Draft | null) => void;
-  applyDraft: () => void;
-  undo: () => void;
-  loadDemo: () => void;
-  clearAll: () => void;
-  replaceAll: (dataset: Dataset, label: string) => void;
-}
 
-const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ source, children, timeZone }: { source: DataSource; children: ReactNode; timeZone?: string }) {
   const tz = useMemo(() => timeZone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), [timeZone]);
@@ -150,10 +123,4 @@ export function StoreProvider({ source, children, timeZone }: { source: DataSour
     replaceAll,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
-}
-
-export function useStore(): Store {
-  const s = useContext(StoreContext);
-  if (!s) throw new Error('useStore must be used inside <StoreProvider>');
-  return s;
 }

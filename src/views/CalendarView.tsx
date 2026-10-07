@@ -7,8 +7,8 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { DAY, dayKey, formatRange, iso, toInterval } from '../domain/time';
 import type { Conflict, Id, Release, Window } from '../domain/types';
-import { WINDOW_LABEL } from './model';
-import { Strip, stripDescription } from './Strip';
+import { stripDescription, WINDOW_LABEL } from './model';
+import { Strip } from './Strip';
 
 export type CalendarMode = 'month' | 'week';
 

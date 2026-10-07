@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { dateToUtc, DAY, dayKey, formatRange, formatShort, iso, MINUTE, overlaps, type Interval } from '../domain/time';
+import { DAY, dayKey, formatRange, formatShort, iso, MINUTE, overlaps, type Interval } from '../domain/time';
 import type { Conflict, Id, Release, WindowKind } from '../domain/types';
 import type { MoveRequest } from './CalendarView';
-import { WINDOW_LABEL } from './model';
-import { Strip, stripDescription } from './Strip';
+import { stripDescription, WINDOW_LABEL } from './model';
+import { Strip } from './Strip';
 
 export interface Lane {
   id: Id;
@@ -239,6 +239,3 @@ export function Swimlane(props: Props) {
     </section>
   );
 }
-
-/** Local midnight (in `timeZone`) of the day containing `t`. */
-export const startOfLocalDay = (t: number, timeZone: string) => dateToUtc(dayKey(t, timeZone), timeZone);

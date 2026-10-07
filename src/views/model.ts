@@ -61,3 +61,12 @@ export const teamName = (ds: Dataset, release: Release) => {
   const teamId = ds.products.find((p) => p.id === release.productId)?.teamId;
   return ds.teams.find((t) => t.id === teamId)?.name ?? 'Unknown team';
 };
+
+/** Accessible name and native tooltip for a strip. */
+export function stripDescription(release: Release, conflicts: Conflict[], when: string): string {
+  const head = `${release.title}, ${CHANGE_CLASS[release.changeClass].label} change, ${when}`;
+  if (!conflicts.length) return `${head}. No conflicts.`;
+  return `${head}. ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}: ${conflicts
+    .map((c) => `${RULE_LABEL[c.rule]}: ${c.message}`)
+    .join(' ')}`;
+}
