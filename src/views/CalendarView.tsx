@@ -5,7 +5,7 @@ import listPlugin from '@fullcalendar/list';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { DAY, dayKey, formatRange, iso, toInterval } from '../domain/time';
+import { DAY, dayKey, formatRange, HOUR, iso, startOfLocalDay, toInterval } from '../domain/time';
 import type { Conflict, Id, Release, Window } from '../domain/types';
 import { stripDescription, WINDOW_LABEL } from './model';
 import { Strip } from './Strip';
@@ -68,18 +68,35 @@ export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, 
   }, [focusDate]);
 
   const events = useMemo<EventInput[]>(() => {
-    const bands: EventInput[] = windows.map((w) => {
+    const bands: EventInput[] = windows.flatMap((w): EventInput[] => {
       const base = { id: `window:${w.id}`, title: `${WINDOW_LABEL[w.kind]}: ${w.name}`, display: 'background', classNames: [`band-${w.kind}`] };
       if (narrow) {
         // List views cannot draw background bands; show the window as its own row.
-        return { ...base, display: 'auto', start: w.startAt, end: w.endAt, allDay: !!w.allDay, editable: false, extendedProps: { window: w } };
+        return [{ ...base, display: 'auto', start: w.startAt, end: w.endAt, allDay: !!w.allDay, editable: false, extendedProps: { window: w } }];
       }
       if (mode === 'month' && !w.allDay) {
-        // The month grid only draws all-day background events: shade every local day the window touches.
+        // The month grid only draws all-day background events. Emit one per local day, and record
+        // which fraction of that day the window covers so a 19:00 start does not shade the whole day.
         const iv = toInterval(w, timeZone);
-        return { ...base, allDay: true, start: dayKey(iv.start, timeZone), end: dayKey(iv.end - 1 + DAY, timeZone) };
+        const days: EventInput[] = [];
+        for (let day = startOfLocalDay(iv.start, timeZone); day < iv.end; ) {
+          const next = startOfLocalDay(day + DAY + 2 * HOUR, timeZone);
+          const from = Math.max(0, (iv.start - day) / (next - day));
+          const to = Math.min(1, (iv.end - day) / (next - day));
+          days.push({
+            ...base,
+            id: `${base.id}:${dayKey(day, timeZone)}`,
+            title: `${base.title} (${formatRange(iv, timeZone)})`,
+            allDay: true,
+            start: dayKey(day, timeZone),
+            end: dayKey(next, timeZone),
+            extendedProps: { from, to },
+          });
+          day = next;
+        }
+        return days;
       }
-      return { ...base, start: w.startAt, end: w.endAt, allDay: !!w.allDay };
+      return [{ ...base, start: w.startAt, end: w.endAt, allDay: !!w.allDay }];
     });
     const items: EventInput[] = releases.map((r) => ({
       id: r.id,
@@ -132,6 +149,7 @@ export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, 
         scrollTime="08:00:00"
         slotMinTime="00:00:00"
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+        defaultRangeSeparator="–"
         slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         events={events}
         viewDidMount={hideIcons}
@@ -163,7 +181,17 @@ export function CalendarView({ mode, releases, windows, conflictsFor, focusIds, 
           );
         }}
         eventDidMount={(arg) => {
-          if (arg.event.display === 'background' || arg.event.extendedProps.window) return;
+          if (arg.event.display === 'background') {
+            const { from, to } = arg.event.extendedProps as { from?: number; to?: number };
+            if (from !== undefined && to !== undefined && (from > 0 || to < 1)) {
+              arg.el.classList.add('band-partial');
+              arg.el.style.setProperty('--from', `${(from * 100).toFixed(1)}%`);
+              arg.el.style.setProperty('--to', `${(to * 100).toFixed(1)}%`);
+            }
+            arg.el.setAttribute('title', arg.event.title);
+            return;
+          }
+          if (arg.event.extendedProps.window) return;
           const r = arg.event.extendedProps.release as Release;
           const when = formatRange(toInterval(r, timeZone), timeZone);
           const desc = stripDescription(r, conflictsFor(r.id), when);

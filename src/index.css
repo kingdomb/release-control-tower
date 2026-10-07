@@ -285,8 +285,12 @@ body {
   min-width: 24px;
   padding: 0 4px;
 }
-@media (pointer: coarse) {
-  .fc .fc-daygrid-more-link {
-    min-height: 44px;
-  }
+
+/* A window covering part of a day shades only that part of the cell (left = 00:00, right = 24:00). */
+.fc .fc-bg-event.band-partial {
+  -webkit-mask-image: linear-gradient(to right, transparent var(--from), #000 var(--from), #000 var(--to), transparent var(--to));
+  mask-image: linear-gradient(to right, transparent var(--from), #000 var(--from), #000 var(--to), transparent var(--to));
+}
+.fc .fc-list-event-time {
+  white-space: nowrap;
 }

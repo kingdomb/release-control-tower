@@ -34,7 +34,15 @@ export function useOverlay(open: boolean, onClose: () => void, panelRef: RefObje
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
       const target = opener.current;
-      if (target && document.contains(target)) target.focus();
+      if (target && document.contains(target)) {
+        target.focus();
+        // An outside click moves focus to the clicked spot after this runs. If that spot is not
+        // focusable (focus fell to <body>), put focus back on the opener; never steal it from a control.
+        window.setTimeout(() => {
+          const active = document.activeElement;
+          if ((!active || active === document.body) && document.contains(target)) target.focus();
+        }, 0);
+      }
     };
   }, [open, panelRef]);
 }

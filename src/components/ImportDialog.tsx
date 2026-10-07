@@ -104,7 +104,7 @@ export function ImportDialog({ current, timeZone, onClose, onImport }: Props) {
                 <div key={f.key}>
                   <label htmlFor={`map-${f.key}`} className="label">
                     {f.label}
-                    {f.required && <span className="text-alert"> (required)</span>}
+                    {f.required && <span className="ml-1 text-alert">(required)</span>}
                   </label>
                   <select
                     id={`map-${f.key}`}

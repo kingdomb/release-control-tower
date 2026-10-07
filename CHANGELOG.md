@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-10-07
+
+Fixes from the independent review of v0.1.0.
+
+### Fixed
+- Month view shaded the whole day for a window that starts or ends mid-day (for example a blackout
+  from 19:00); it now shades only the covered part of each day, with exact times on hover.
+- Clicking outside a menu or dialog did not return focus to the control that opened it.
+- Phone agenda wrapped each time range onto three lines.
+- The "+N more" link in the month grid was clipped on touch screens at tablet widths.
+- Seed data gave some pre-approved Standard changes a "Medium" risk statement.
+
+### Changed
+- Deploy smoke test now checks that the script bundle and stylesheet load and that the bundle contains
+  the rule engine, not just that the HTML page returns 200.
+- README: corrected the CI trigger description and the data-privacy statement (fonts load from Google Fonts).
+
+### Added
+- Tests: Tab reaches the timeline strips with a visible focus outline; dialogs close on Escape and
+  outside click and return focus; partial-day guardrail shading.
+
 ## [0.1.0] - 2026-10-07
 
 First public release.
@@ -25,4 +46,5 @@ First public release.
 - CI: lint, type-check, unit tests, build, Playwright end-to-end, layout QA at 14 widths, axe
   (WCAG 2.2 AA rules). Tag-only deploy to GitHub Pages with a live smoke test.
 
+[0.1.1]: https://github.com/kingdomb/release-control-tower/releases/tag/v0.1.1
 [0.1.0]: https://github.com/kingdomb/release-control-tower/releases/tag/v0.1.0

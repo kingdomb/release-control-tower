@@ -24,7 +24,9 @@ release pull request description.
 
 ## 4. Release
 - [ ] Merge to `main` (no squash of unrelated work)
-- [ ] Tag the merge commit: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`
+- [ ] Record the go/no-go decision in `docs/GO-NO-GO.md`, merge, and wait for CI on `main`
+- [ ] Tag the commit that CI just passed (the one containing the decision record): `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`
+- [ ] Cite the deploy run (which re-runs every gate on the tagged commit) in the release record
 - [ ] Deploy workflow green: gates → build → deploy → live smoke test
 - [ ] GitHub release created from the tag with the changelog entry as notes
 

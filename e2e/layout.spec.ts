@@ -121,6 +121,7 @@ test('layout QA across 14 viewport widths', async ({ browser }) => {
       await burger.click();
       await page.mouse.click(5, 880);
       await expect(page.locator('#data-menu')).toHaveCount(0);
+      await expect(burger).toBeFocused();
 
       const count = page.getByRole('button', { name: /conflicts? in view/ });
       await count.click();
@@ -131,6 +132,17 @@ test('layout QA across 14 viewport widths', async ({ browser }) => {
       await page.keyboard.press('Escape');
       await expect(sheet).toHaveCount(0);
       await expect(count).toBeFocused();
+      // Outside click: the backdrop area to the left of the sheet (only exists when the sheet is narrower than the viewport).
+      await count.click();
+      await expect(sheet).toBeVisible();
+      const sheetBox = (await sheet.boundingBox())!;
+      if (sheetBox.x > 10) {
+        await page.mouse.click(5, 450);
+        await expect(sheet).toHaveCount(0);
+        await expect(count).toBeFocused();
+      } else {
+        await page.keyboard.press('Escape');
+      }
     }
     for (const p of problems) allProblems.push(`${width}px: ${p}`);
     rows.push({ ...row, ok: problems.length === 0 });

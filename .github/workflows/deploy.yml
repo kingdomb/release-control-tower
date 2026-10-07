@@ -53,7 +53,17 @@ jobs:
         run: |
           url="${{ steps.deployment.outputs.page_url }}"
           for i in 1 2 3 4 5 6; do
-            code=$(curl -s -o page.html -w "%{http_code}" "$url") && [ "$code" = "200" ] && grep -q "Release Control Tower" page.html && echo "Live: $url" && exit 0
+            code=$(curl -s -o page.html -w "%{http_code}" "$url")
+            js=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.js' page.html | head -1)
+            css=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.css' page.html | head -1)
+            if [ "$code" = "200" ] && [ -n "$js" ] && [ -n "$css" ]; then
+              jscode=$(curl -s -o app.js -w "%{http_code}" "${url}${js}")
+              csscode=$(curl -s -o /dev/null -w "%{http_code}" "${url}${css}")
+              # The bundle must load and contain the rule engine, not just the HTML shell.
+              if [ "$jscode" = "200" ] && [ "$csscode" = "200" ] && grep -q "outside-maintenance" app.js; then
+                echo "Live: $url (index 200, $js 200, $css 200)"; exit 0
+              fi
+            fi
             sleep 10
           done
           echo "Smoke test failed for $url"; exit 1

@@ -156,7 +156,7 @@ npm run dev          # http://localhost:5173/release-control-tower/
 
 Teams, products, environments, and configuration items named in the file are created if they do not exist. A JSON file can be an array of row objects (same columns) or a full dataset, as in the JSON template.
 
-Data stays in your browser (`localStorage`). Nothing is sent anywhere.
+Your schedule stays in your browser (`localStorage`); it is never uploaded. The page itself loads its fonts from Google Fonts.
 
 ## Phase 2
 
@@ -164,10 +164,12 @@ Phase 1 is fully client-side. Phase 2 swaps `LocalDataSource` for a Supabase imp
 
 ## How this project is released
 
-- Every push and pull request runs lint, type-check, unit tests, build, end-to-end tests, layout QA at 14 widths, and axe accessibility checks ([ci.yml](.github/workflows/ci.yml)).
-- Deploys happen only from a `vX.Y.Z` tag, only after the same gates pass on that commit, and only if the tag matches `package.json` ([deploy.yml](.github/workflows/deploy.yml)). The deploy job smoke-tests the live URL.
+- Every push to `main` and every pull request runs lint, type-check, unit tests, build, end-to-end tests, layout QA at 14 widths, and axe accessibility checks ([ci.yml](.github/workflows/ci.yml)).
+- Deploys happen only from a `vX.Y.Z` tag, only after the same gates pass on that commit, and only if the tag matches `package.json` ([deploy.yml](.github/workflows/deploy.yml)). The deploy job then checks that the live page, its script bundle, and its stylesheet all load, and that the bundle contains the rule engine.
 - [CHANGELOG.md](CHANGELOG.md), [Release checklist](docs/RELEASE-CHECKLIST.md), [Go/no-go](docs/GO-NO-GO.md), [Rollback runbook](docs/ROLLBACK-RUNBOOK.md).
 
 ## Accessibility
 
-Keyboard: every control and every release strip is reachable; Enter opens details; Alt+←/→ (Shift for a day) moves a strip on the timeline as a what-if; Escape closes any overlay and returns focus. Change class is shown by pattern as well as colour. Tap targets are at least 44×44px outside the calendar grid, and on touch screens inside it. CI runs axe (WCAG 2.2 AA rules) on every view and dialog at desktop and phone widths.
+Keyboard: every control and every release strip is reachable; Enter opens details; Alt+←/→ (Shift for a day) moves a strip on the timeline as a what-if; Escape closes any overlay and returns focus. Focus is always visible (3px outline). Change class is shown by pattern as well as colour. Tap targets are at least 44×44px everywhere except inside the month grid, where release strips are 44px tall on touch screens and the "+N more" link meets the WCAG 2.2 AA minimum of 24×24px. CI runs axe (WCAG 2.2 AA rules) on every view and dialog at desktop and phone widths, and checks that Tab reaches the timeline strips.
+
+In the month grid, a blackout, freeze, or maintenance window that covers only part of a day shades only that part of the cell (left edge 00:00, right edge 24:00); hover a band for its exact times.
