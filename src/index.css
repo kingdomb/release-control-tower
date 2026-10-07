@@ -1,0 +1,262 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #18222f;
+  --ink-soft: #46525f;
+  --console: #f6f8fb;
+  --rule: #d3dae3;
+  --approach: #1d5bb8;
+  --alert: #b4122b;
+  --amber: #b9770e;
+  --go: #2e7d4f;
+
+  /* FullCalendar theme */
+  --fc-border-color: var(--rule);
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: var(--console);
+  --fc-today-bg-color: #eef3fb;
+  --fc-event-bg-color: transparent;
+  --fc-event-border-color: transparent;
+  --fc-event-text-color: var(--ink);
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: var(--rule);
+  --fc-button-text-color: var(--ink);
+  --fc-button-hover-bg-color: var(--console);
+  --fc-button-hover-border-color: #b8c2ce;
+  --fc-button-active-bg-color: #e3ecf9;
+  --fc-button-active-border-color: var(--approach);
+  --fc-now-indicator-color: var(--alert);
+}
+
+html,
+body {
+  background: var(--console);
+  color: var(--ink);
+}
+
+body {
+  font-family: Barlow, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--approach);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Flight strip (a release) ---------- */
+.strip {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  overflow: hidden;
+}
+.strip-bar {
+  flex: 0 0 6px;
+}
+/* Change class is encoded by pattern as well as color, so it never relies on color alone. */
+.strip[data-class='standard'] .strip-bar {
+  background: var(--go);
+}
+.strip[data-class='normal'] .strip-bar {
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--approach);
+}
+.strip[data-class='emergency'] .strip-bar {
+  background: repeating-linear-gradient(45deg, var(--alert) 0 3px, #fff 3px 6px);
+}
+.strip[data-conflict='true'] {
+  border-color: var(--alert);
+  box-shadow: inset -3px 0 0 var(--alert);
+  background: #fff7f8;
+}
+.strip[data-focus='true'] {
+  outline: 3px solid var(--approach);
+  outline-offset: 1px;
+}
+.strip[data-draft='true'] {
+  border-style: dashed;
+  border-color: var(--approach);
+}
+.strip-body {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2px 6px;
+}
+.strip-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ---------- Guardrail bands ---------- */
+.band-blackout,
+.fc .fc-bg-event.band-blackout {
+  background: repeating-linear-gradient(135deg, rgba(24, 34, 47, 0.16) 0 6px, rgba(24, 34, 47, 0.05) 6px 12px);
+}
+.band-freeze,
+.fc .fc-bg-event.band-freeze {
+  background: repeating-linear-gradient(90deg, rgba(29, 91, 184, 0.16) 0 2px, rgba(29, 91, 184, 0.05) 2px 8px);
+}
+.band-maintenance,
+.fc .fc-bg-event.band-maintenance {
+  background: rgba(46, 125, 79, 0.12);
+}
+
+/* ---------- FullCalendar adjustments ---------- */
+.fc {
+  font-size: 0.85rem;
+}
+.fc .fc-toolbar-title {
+  font-family: 'Barlow Condensed', Barlow, sans-serif;
+  font-weight: 600;
+  font-size: 1.35rem;
+}
+.fc .fc-button {
+  min-height: 44px;
+  min-width: 44px;
+  font-weight: 500;
+  text-transform: none;
+  box-shadow: none !important;
+}
+.fc .fc-button:focus-visible {
+  outline: 3px solid var(--approach);
+  outline-offset: 2px;
+}
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.fc .fc-event {
+  margin-bottom: 2px;
+}
+.fc .fc-event:focus-visible {
+  outline: 3px solid var(--approach);
+  outline-offset: 1px;
+}
+.fc .fc-bg-event {
+  opacity: 1;
+}
+.fc .fc-bg-event .fc-event-title {
+  font-size: 0.7rem;
+  font-style: normal;
+  color: var(--ink-soft);
+  padding: 2px 4px;
+}
+.fc .fc-timegrid-event .strip {
+  height: 100%;
+}
+.fc .fc-daygrid-more-link {
+  color: var(--approach);
+  font-weight: 600;
+}
+@media (max-width: 639px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1.1rem;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+
+/* Invisible 44x44px minimum hit area around small controls. */
+.hit-44 {
+  position: relative;
+}
+.hit-44::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded border border-rule bg-white px-3 text-sm font-medium text-ink hover:bg-console disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-approach bg-approach text-white hover:bg-[#174a96];
+  }
+  .btn-danger {
+    @apply border-alert/60 text-alert hover:bg-alert-tint;
+  }
+  .btn[aria-pressed='true'] {
+    @apply border-approach bg-approach-tint text-approach;
+  }
+  .field {
+    @apply min-h-[44px] w-full rounded border border-rule bg-white px-2 text-sm text-ink;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium text-ink-soft;
+  }
+}
+
+/* List (agenda) view on phones */
+.fc .fc-list-event td {
+  vertical-align: middle;
+}
+.fc .fc-list-event-graphic {
+  display: none;
+}
+.fc .fc-list-event-title .strip {
+  min-height: 44px;
+}
+.fc .fc-list-day-cushion {
+  background: var(--console);
+}
+/* Compact strips for mouse users; 44px tap targets on touch screens. */
+@media (pointer: coarse) {
+  .fc .fc-daygrid-event .strip,
+  .fc .fc-timegrid-event .strip {
+    min-height: 44px;
+  }
+}
+.fc .fc-daygrid-event .strip {
+  min-height: 26px;
+}
+.fc .fc-list-event-time {
+  width: 5.5rem;
+  white-space: normal;
+}
+/* Let the title cell take the remaining width and truncate instead of widening the table. */
+.fc .fc-list-event-title {
+  width: 100%;
+  max-width: 0;
+}
