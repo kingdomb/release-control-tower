@@ -23,4 +23,4 @@ Record the outcome and the date in the release pull request.
 | Version | Date | Decision | Notes |
 | --- | --- | --- | --- |
 | v0.1.0 | 2026-10-07 | Go | First release. Decision taken on CI run 37586468077 (merge commit); the tag was then placed on the following docs-only commit, whose gates passed in the deploy run 37588476673. Criterion 8 not applicable (no previous tag). Deviations: no pull request (milestones merged locally), so criteria 5 and 6 evidence is in the release report, not PR notes. |
-| v0.1.1 | 2026-10-07 | Pending | Fixes from the v0.1.0 release review. Record after CI on the tagged commit. |
+| v0.1.1 | 2026-10-07 | Go | Fixes from the v0.1.0 release review. CI on the merge: run 37589958382 (151 unit, 17 e2e). The tag goes on the commit containing this record once CI passes on it; the deploy run re-runs every gate on that commit. Criterion 8: v0.1.0 deploy succeeded (run 37588476673). |
