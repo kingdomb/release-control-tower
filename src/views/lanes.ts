@@ -50,11 +50,12 @@ export function teamLanes(ds: Dataset, releases: Release[], windows: Window[], s
 
 /** One lane per environment, with releases and non-release bookings. */
 export function environmentLanes(ds: Dataset, releases: Release[], windows: Window[], tz: string) {
-  const lanes: Lane[] = ds.environments.map((e) => ({
-    id: e.id,
-    label: e.name,
-    sublabel: e.kind === 'staging-uat' ? 'Staging / UAT' : e.kind === 'prod' ? 'Production' : 'Development',
-  }));
+  const KIND: Record<string, string> = { dev: 'Development', 'staging-uat': 'Staging / UAT', prod: 'Production' };
+  const lanes: Lane[] = ds.environments.map((e) => {
+    const kind = KIND[e.kind] ?? e.kind;
+    const same = kind.replace(/\W/g, '').toLowerCase() === e.name.replace(/\W/g, '').toLowerCase();
+    return { id: e.id, label: e.name, sublabel: same ? undefined : kind };
+  });
   const items: LaneItem[] = [
     ...releases.map((r) => ({ id: r.id, laneId: r.environmentId, iv: toInterval(r, tz), release: r })),
     ...ds.bookings.map((b) => ({

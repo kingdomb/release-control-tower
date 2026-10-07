@@ -1,7 +1,7 @@
 {
   "name": "release-control-tower",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -50,5 +50,8 @@
     "typescript-eslint": "^8.71.1",
     "vite": "^6.4.4",
     "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }
