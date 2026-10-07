@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { CabAgendaView } from './components/CabAgendaView';
 import { ConflictPanel } from './components/ConflictPanel';
 import { DemoBanner } from './components/DemoBanner';
+import { ExportDialog } from './components/ExportDialog';
 import { Header, type HeaderAction } from './components/Header';
+import { ImportDialog } from './components/ImportDialog';
 import { ReleaseDrawer } from './components/ReleaseDrawer';
 import { ScopeControls, ViewSwitcher, type ViewMode } from './components/Toolbar';
 import { useOverlay } from './components/useOverlay';
@@ -57,6 +60,8 @@ export default function App() {
   );
 
   const [openId, setOpenId] = useState<Id | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'export' | null>(null);
+  const [cabOpen, setCabOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   useOverlay(panelOpen, () => setPanelOpen(false), panelRef);
@@ -103,12 +108,27 @@ export default function App() {
 
   const actions: HeaderAction[] = [
     { id: 'undo', label: 'Undo', onClick: store.undo, disabled: !store.canUndo },
+    { id: 'import', label: 'Import', onClick: () => setDialog('import') },
+    { id: 'export', label: 'Export .ics', onClick: () => setDialog('export'), disabled: !committed.releases.length },
+    { id: 'cab', label: 'CAB agenda', onClick: () => setCabOpen(true), disabled: !committed.releases.length },
     { id: 'demo', label: 'Load demo data', onClick: store.loadDemo },
     { id: 'clear', label: 'Clear all data', onClick: store.clearAll, tone: 'danger', disabled: !committed.releases.length },
   ];
 
   if (!store.loaded) {
     return <p className="p-6 text-sm text-ink-soft">Loading schedule…</p>;
+  }
+
+  if (cabOpen) {
+    return (
+      <CabAgendaView
+        ds={committed}
+        conflicts={store.conflicts}
+        timeZone={tz}
+        initialWeekStart={startOfLocalDay(Date.now(), tz) - ((new Date().getDay() + 6) % 7) * DAY}
+        onClose={() => setCabOpen(false)}
+      />
+    );
   }
 
   const lanes =
@@ -148,7 +168,7 @@ export default function App() {
         <div className="min-w-0 scroll-mt-4" ref={viewRef}>
           <WhatIfBar store={store} onOpenRelease={onSelect} />
           {committed.releases.length === 0 && !draft ? (
-            <EmptyState onLoadDemo={store.loadDemo} />
+            <EmptyState onLoadDemo={store.loadDemo} onImport={() => setDialog('import')} />
           ) : lanes ? (
             <Swimlane
               title={view === 'timeline' ? 'Timeline by team' : 'Environment bookings'}
@@ -202,6 +222,16 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {dialog === 'import' && (
+        <ImportDialog
+          current={committed}
+          timeZone={tz}
+          onClose={() => setDialog(null)}
+          onImport={(dataset, label, mode) => (mode === 'replace' ? store.replaceAll(dataset, label) : store.commit(dataset, label))}
+        />
+      )}
+      {dialog === 'export' && <ExportDialog ds={committed} initialTeamId={scope.teamId} onClose={() => setDialog(null)} />}
 
       {openId && <ReleaseDrawer key={openId} store={store} releaseId={openId} onClose={() => setOpenId(null)} />}
     </div>
@@ -266,7 +296,7 @@ function Legend() {
   );
 }
 
-function EmptyState({ onLoadDemo }: { onLoadDemo: () => void }) {
+function EmptyState({ onLoadDemo, onImport }: { onLoadDemo: () => void; onImport: () => void }) {
   return (
     <section className="rounded border border-dashed border-rule bg-white p-8">
       <h2 className="font-cond text-2xl font-semibold">No releases scheduled</h2>
@@ -274,7 +304,10 @@ function EmptyState({ onLoadDemo }: { onLoadDemo: () => void }) {
         Import your team's schedule from a CSV or JSON file, or load the synthetic demo to see conflict detection at work.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" className="btn btn-primary" onClick={onLoadDemo}>
+        <button type="button" className="btn btn-primary" onClick={onImport}>
+          Import a schedule
+        </button>
+        <button type="button" className="btn" onClick={onLoadDemo}>
           Load demo data
         </button>
       </div>
