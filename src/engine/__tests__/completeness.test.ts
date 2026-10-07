@@ -24,8 +24,9 @@ describe('rule 5: completeness', () => {
       changeRequests: [fullCr('e', { testPlan: '' })],
     });
     const out = run(ds);
+    expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ severity: 'medium' });
-    expect(out[0]!.message).toContain('no test plan');
+    expect(out[0]!.message).toBe('Emergency change "Release e" has no test plan. Document it as soon as the fix is in.');
   });
 
   it('treats whitespace-only plans as missing', () => {
@@ -54,5 +55,13 @@ describe('rule 5: completeness', () => {
   it('ignores cancelled releases', () => {
     const ds = baseDataset({ releases: [rel({ id: 'a', changeClass: 'normal', status: 'cancelled', ...time })] });
     expect(run(ds)).toEqual([]);
+  });
+
+  it('flags an Emergency change with no rollback plan', () => {
+    const ds = baseDataset({
+      releases: [rel({ id: 'e', changeClass: 'emergency', ...time })],
+      changeRequests: [fullCr('e', { rollbackPlan: '' })],
+    });
+    expect(run(ds).map((c) => c.message)).toEqual(['Emergency change "Release e" has no rollback plan. Document it as soon as the fix is in.']);
   });
 });

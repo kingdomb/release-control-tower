@@ -106,14 +106,26 @@ describe('rule 1: time overlap', () => {
   });
 
   it('in focus mode only reports conflicts involving the focus release', () => {
+    // a-b and b-c overlap; a and c do not.
     const ds = baseDataset({
       releases: [
         rel({ id: 'a', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
-        rel({ id: 'b', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
-        rel({ id: 'c', productId: 'p3', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T17:00') }),
+        rel({ id: 'c', startAt: at('2026-03-10T16:30'), endAt: at('2026-03-10T18:00') }),
       ],
     });
-    expect(run(ds, UTC, 'c')).toEqual([]);
-    expect(run(ds, UTC, 'a')).toHaveLength(1);
+    expect(run(ds).map((c) => c.releaseIds)).toEqual([['a', 'b'], ['b', 'c']]);
+    expect(run(ds, UTC, 'a').map((c) => c.releaseIds)).toEqual([['a', 'b']]);
+    expect(run(ds, UTC, 'c').map((c) => c.releaseIds)).toEqual([['b', 'c']]);
+  });
+
+  it('does not flag shared configuration items when the ranges only touch', () => {
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'a', productId: 'p1', configItemIds: ['db'], startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', productId: 'p3', configItemIds: ['db'], startAt: at('2026-03-10T16:00'), endAt: at('2026-03-10T17:00') }),
+      ],
+    });
+    expect(run(ds)).toEqual([]);
   });
 });

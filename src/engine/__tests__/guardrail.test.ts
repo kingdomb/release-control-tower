@@ -61,6 +61,10 @@ describe('rule 3: guardrail violations', () => {
     });
     const out = run(ds);
     expect(out.map((c) => c.releaseIds[0])).toEqual(['mobile']);
+    expect(out[0]).toMatchObject({ severity: 'critical', relatedIds: ['fz'] });
+    expect(out[0]!.message).toBe(
+      '"Release mobile" falls inside freeze window "Mobile freeze" (Tue 10 Mar, 00:00 – Thu 12 Mar, 00:00).',
+    );
   });
 
   it('does not flag a release that ends exactly when the blackout starts', () => {
@@ -135,5 +139,71 @@ describe('rule 3: guardrail violations', () => {
     });
     expect(run(ds, NY)).toHaveLength(1);
     expect(run(ds, UTC)).toEqual([]);
+  });
+
+  it('does not flag a release that starts exactly when the blackout ends', () => {
+    const ds = baseDataset({
+      windows: [blackout],
+      releases: [rel({ id: 'a', environmentId: 'prod', startAt: at('2026-03-12T00:00'), endAt: at('2026-03-12T01:00') })],
+    });
+    expect(run(ds)).toEqual([]);
+  });
+
+  it('flags a release that straddles the blackout edge', () => {
+    const ds = baseDataset({
+      windows: [blackout],
+      releases: [rel({ id: 'a', environmentId: 'prod', startAt: at('2026-03-11T23:30'), endAt: at('2026-03-12T00:30') })],
+    });
+    expect(run(ds)).toHaveLength(1);
+  });
+
+  it('does not flag a freeze-scoped release that touches the freeze boundaries', () => {
+    const ds = baseDataset({
+      windows: [freeze],
+      releases: [
+        rel({ id: 'before', productId: 'p3', startAt: at('2026-03-09T23:00'), endAt: at('2026-03-10T00:00') }),
+        rel({ id: 'after', productId: 'p3', startAt: at('2026-03-12T00:00'), endAt: at('2026-03-12T01:00') }),
+      ],
+    });
+    expect(run(ds)).toEqual([]);
+  });
+
+  it('resolves an all-day freeze in the evaluation time zone', () => {
+    const allDayFreeze: Window = { ...freeze, allDay: true, startAt: '2026-03-10', endAt: '2026-03-11' };
+    const ds = baseDataset({
+      windows: [allDayFreeze],
+      releases: [rel({ id: 'a', productId: 'p3', startAt: at('2026-03-11T02:00'), endAt: at('2026-03-11T03:00') })],
+    });
+    expect(run(ds, NY)).toHaveLength(1);
+    expect(run(ds, UTC)).toEqual([]);
+  });
+
+  it('resolves an all-day maintenance window in the evaluation time zone', () => {
+    const allDayMaint: Window = { ...maint, allDay: true, startAt: '2026-03-14', endAt: '2026-03-15' };
+    // 02:00Z-03:00Z on 15 Mar is still 14 Mar in New York (inside), but 15 Mar in UTC (outside).
+    const ds = baseDataset({
+      windows: [allDayMaint],
+      releases: [rel({ id: 'a', environmentId: 'prod', changeClass: 'normal', startAt: at('2026-03-15T02:00'), endAt: at('2026-03-15T03:00') })],
+    });
+    expect(run(ds, NY)).toEqual([]);
+    expect(run(ds, UTC)).toHaveLength(1);
+  });
+
+  it('accepts a Normal prod change spanning two back-to-back maintenance windows', () => {
+    const next: Window = { ...maint, id: 'mw2', startAt: at('2026-03-14T22:00'), endAt: at('2026-03-15T04:00') };
+    const ds = baseDataset({
+      windows: [maint, next],
+      releases: [rel({ id: 'a', environmentId: 'prod', changeClass: 'normal', startAt: at('2026-03-14T21:00'), endAt: at('2026-03-14T23:00') })],
+    });
+    expect(run(ds)).toEqual([]);
+  });
+
+  it('flags a change spanning two maintenance windows with a gap between them', () => {
+    const later: Window = { ...maint, id: 'mw2', startAt: at('2026-03-14T22:30'), endAt: at('2026-03-15T04:00') };
+    const ds = baseDataset({
+      windows: [maint, later],
+      releases: [rel({ id: 'a', environmentId: 'prod', changeClass: 'normal', startAt: at('2026-03-14T21:00'), endAt: at('2026-03-14T23:00') })],
+    });
+    expect(run(ds)).toHaveLength(1);
   });
 });

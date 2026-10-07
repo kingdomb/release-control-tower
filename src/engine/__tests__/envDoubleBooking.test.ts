@@ -17,6 +17,9 @@ describe('rule 2: environment double-booking', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ releaseIds: ['a', 'b'], severity: 'high', moveReleaseId: 'b' });
     expect(out[0]!.relatedIds).toEqual(['prod']);
+    expect(out[0]!.message).toBe(
+      'Production is double-booked: "Release a" (Tue 10 Mar, 14:00 – 16:00) overlaps "Release b" (Tue 10 Mar, 15:00 – 15:30).',
+    );
   });
 
   it('scales severity with the environment kind', () => {
@@ -96,5 +99,33 @@ describe('rule 2: environment double-booking', () => {
       ],
     });
     expect(run(ds)).toEqual([]);
+  });
+
+  it('does not flag a release that starts exactly when a booking ends', () => {
+    const ds = baseDataset({
+      releases: [rel({ id: 'a', environmentId: 'stg', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T16:00') })],
+      bookings: [{ id: 'qa1', environmentId: 'stg', title: 'Regression', owner: 'QA', startAt: at('2026-03-10T09:00'), endAt: at('2026-03-10T15:00') }],
+    });
+    expect(run(ds)).toEqual([]);
+  });
+
+  it('compares offset timestamps as instants', () => {
+    // 09:30-05:00 is 14:30Z, inside the 14:00Z-16:00Z release.
+    const ds = baseDataset({
+      releases: [rel({ id: 'a', environmentId: 'stg', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') })],
+      bookings: [{ id: 'qa1', environmentId: 'stg', title: 'Perf', owner: 'SRE', startAt: '2026-03-10T09:30:00-05:00', endAt: '2026-03-10T10:00:00-05:00' }],
+    });
+    expect(run(ds)).toHaveLength(1);
+  });
+
+  it('reports a same-product, same-environment overlap here and under rule 1 (two distinct problems)', async () => {
+    const { evaluate } = await import('../evaluate');
+    const ds = baseDataset({
+      releases: [
+        rel({ id: 'a', environmentId: 'stg', startAt: at('2026-03-10T14:00'), endAt: at('2026-03-10T16:00') }),
+        rel({ id: 'b', environmentId: 'stg', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T17:00') }),
+      ],
+    });
+    expect(evaluate(ds, { ...UTC, withSuggestions: false }).map((c) => c.rule).sort()).toEqual(['environment-double-booking', 'time-overlap']);
   });
 });

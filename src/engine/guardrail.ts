@@ -1,4 +1,4 @@
-import { contains, formatRange, overlaps } from '../domain/time';
+import { contains, formatRange, overlaps, type Interval } from '../domain/time';
 import type { Release } from '../domain/types';
 import { inScope, isProd, label, type EvalContext } from './context';
 import { conflictId, type RawConflict, type Rule } from './rule';
@@ -39,7 +39,7 @@ export const guardrail: Rule = (ctx: EvalContext) => {
 
     if (needsMaintenanceWindow(ctx, r)) {
       const windows = ctx.ds.windows.filter((w) => w.kind === 'maintenance' && inScope(ctx, w, r));
-      if (windows.length && !windows.some((w) => contains(ctx.interval(w), iv))) {
+      if (windows.length && !mergeIntervals(windows.map((w) => ctx.interval(w))).some((m) => contains(m, iv))) {
         out.push({
           id: conflictId('guardrail', r.id, 'outside-maintenance'),
           rule: 'guardrail',
@@ -56,3 +56,15 @@ export const guardrail: Rule = (ctx: EvalContext) => {
 };
 
 export const needsMaintenanceWindow = (ctx: EvalContext, r: Release) => r.changeClass === 'normal' && isProd(ctx, r);
+
+/** Merge overlapping or back-to-back intervals, so a change may span adjacent maintenance windows. */
+export function mergeIntervals(list: Interval[]): Interval[] {
+  const sorted = [...list].sort((a, b) => a.start - b.start);
+  const out: Interval[] = [];
+  for (const iv of sorted) {
+    const last = out.at(-1);
+    if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
+    else out.push({ ...iv });
+  }
+  return out;
+}

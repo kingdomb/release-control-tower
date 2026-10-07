@@ -335,11 +335,13 @@ function changeRequestFor(c: Ctx, r: Release): ChangeRequest {
 export interface SeedOptions {
   anchor?: Date;
   releaseCount?: number;
+  /** PRNG seed. Changes where the non-planted releases land; the planted conflicts stay. */
+  seed?: number;
 }
 
 export function generateSeed(opts: SeedOptions = {}): Dataset {
   const anchor = mondayOf(opts.anchor ?? new Date()).getTime();
-  const c: Ctx = { anchor, rng: mulberry32(SEED) };
+  const c: Ctx = { anchor, rng: mulberry32(opts.seed ?? SEED) };
   const total = opts.releaseCount ?? 60;
 
   const planted = plantedReleases(c);

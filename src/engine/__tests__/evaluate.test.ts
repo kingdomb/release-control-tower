@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diffConflicts, evaluate } from '../evaluate';
-import { at, baseDataset, fullCr, rel, UTC } from './fixtures';
+import { at, baseDataset, deepFreeze, fullCr, rel, UTC } from './fixtures';
 
 const ds = baseDataset({
   windows: [{ id: 'bo', kind: 'blackout', name: 'Close', scope: {}, startAt: at('2026-03-12T00:00'), endAt: at('2026-03-13T00:00') }],
@@ -9,15 +9,20 @@ const ds = baseDataset({
     rel({ id: 'b', startAt: at('2026-03-10T15:00'), endAt: at('2026-03-10T17:00') }),
     rel({ id: 'c', productId: 'p3', environmentId: 'stg', startAt: at('2026-03-12T10:00'), endAt: at('2026-03-12T11:00') }),
     rel({ id: 'n', productId: 'p2', environmentId: 'stg', changeClass: 'normal', startAt: at('2026-03-09T10:00'), endAt: at('2026-03-09T11:00') }),
+    rel({ id: 'up', productId: 'p3', environmentId: 'prod', startAt: at('2026-03-16T10:00'), endAt: at('2026-03-16T11:00') }),
+    rel({ id: 'down', productId: 'p2', environmentId: 'prod', startAt: at('2026-03-15T10:00'), endAt: at('2026-03-15T11:00') }),
   ],
+  dependencies: [{ releaseId: 'down', dependsOnReleaseId: 'up' }],
 });
 
 describe('evaluate', () => {
   it('runs every rule and sorts by severity, then id', () => {
     const out = evaluate(ds, UTC);
+    // Two "high" conflicts: ties are broken by conflict id (completeness < dependency-order).
     expect(out.map((c) => [c.rule, c.severity])).toEqual([
       ['guardrail', 'critical'],
       ['completeness', 'high'],
+      ['dependency-order', 'high'],
       ['time-overlap', 'medium'],
       ['environment-double-booking', 'low'],
     ]);
@@ -48,6 +53,21 @@ describe('evaluate', () => {
     const d = diffConflicts(before, evaluate(moved, UTC));
     expect(d.resolved.map((c) => c.rule).sort()).toEqual(['completeness', 'guardrail']);
     expect(d.added).toEqual([]);
-    expect(d.unchanged.map((c) => c.rule).sort()).toEqual(['environment-double-booking', 'time-overlap']);
+    expect(d.unchanged.map((c) => c.rule).sort()).toEqual(['dependency-order', 'environment-double-booking', 'time-overlap']);
+  });
+
+  it('reports conflicts added by a change', () => {
+    const before = evaluate(ds, UTC);
+    const moved = { ...ds, releases: ds.releases.map((r) => (r.id === 'a' ? { ...r, startAt: at('2026-03-12T10:00'), endAt: at('2026-03-12T11:00') } : r)) };
+    const d = diffConflicts(before, evaluate(moved, UTC));
+    expect(d.added.map((c) => c.id)).toEqual(['guardrail:a|bo']);
+    expect(d.resolved.map((c) => c.rule).sort()).toEqual(['environment-double-booking', 'time-overlap']);
+  });
+
+  it('is pure: never mutates its input', () => {
+    const frozen = deepFreeze(structuredClone(ds));
+    const snapshot = JSON.stringify(frozen);
+    expect(() => evaluate(frozen, UTC)).not.toThrow();
+    expect(JSON.stringify(frozen)).toBe(snapshot);
   });
 });

@@ -58,3 +58,22 @@ export const fullCr = (releaseId: string, over: Partial<ChangeRequest> = {}): Ch
 
 /** "2026-03-10T14:00" → ISO UTC instant. */
 export const at = (local: string) => new Date(`${local}:00.000Z`).toISOString();
+
+/**
+ * Independent check for suggestions: apply the move, run the full `evaluate`, and list any
+ * time-based conflict that still involves the moved release. Does not use the slot finder.
+ */
+export async function remainingTimedConflicts(ds: Dataset, releaseId: string, startAt: string, endAt: string, opts: EvalOptions) {
+  const { evaluate } = await import('../evaluate');
+  const moved: Dataset = { ...ds, releases: ds.releases.map((r) => (r.id === releaseId ? { ...r, startAt, endAt } : r)) };
+  return evaluate(moved, { ...opts, withSuggestions: false }).filter((c) => c.rule !== 'completeness' && c.releaseIds.includes(releaseId));
+}
+
+/** Recursively freeze so any mutation by the engine throws in strict mode. */
+export function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
+}

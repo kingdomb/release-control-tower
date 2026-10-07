@@ -30,10 +30,12 @@ describe('ripple effect', () => {
         rel({ id: 'db-peer', productId: 'p2', configItemIds: ['db'], ...t(15) }),
       ],
     });
-    const ids = rippleEffect(ds, 'db-upgrade', UTC).map((r) => [r.releaseId, r.via, r.depth]);
-    expect(ids).toEqual([
-      ['app-later', 'config-item', 1],
-      ['edge-later', 'config-item', 1],
+    const out = rippleEffect(ds, 'db-upgrade', UTC);
+    // Edge Gateway depends on the DB transitively (edge -> app -> db), so its release is
+    // directly affected by the DB release: depth 1, even though it is two asset hops away.
+    expect(out).toEqual([
+      { releaseId: 'app-later', depth: 1, via: 'config-item', fromReleaseId: 'db-upgrade', path: ['db-upgrade', 'app-later'] },
+      { releaseId: 'edge-later', depth: 1, via: 'config-item', fromReleaseId: 'db-upgrade', path: ['db-upgrade', 'edge-later'] },
     ]);
   });
 
@@ -69,5 +71,13 @@ describe('ripple effect', () => {
     });
     expect(rippleEffect(ds, 'a', UTC)).toEqual([]);
     expect(rippleEffect(ds, 'nope', UTC)).toEqual([]);
+  });
+
+  it('lists explicit dependents even when they are (wrongly) scheduled earlier', () => {
+    const ds = baseDataset({
+      releases: [rel({ id: 'a', ...t(12) }), rel({ id: 'b', ...t(10) })],
+      dependencies: [{ releaseId: 'b', dependsOnReleaseId: 'a' }],
+    });
+    expect(rippleEffect(ds, 'a', UTC).map((r) => r.releaseId)).toEqual(['b']);
   });
 });
