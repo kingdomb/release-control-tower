@@ -26,24 +26,31 @@ export interface EvalContext {
   focusId?: Id;
 }
 
+/**
+ * Intervals keyed by object identity. Dataset items are treated as immutable (edits replace
+ * the object), so a cached interval can never go stale, and the slot finder reuses the
+ * intervals of every item it does not move.
+ */
+const intervalCache = new WeakMap<Timed, { tz: string; iv: Interval }>();
+
+function cachedInterval(item: Timed, timeZone: string): Interval {
+  const hit = intervalCache.get(item);
+  if (hit && hit.tz === timeZone) return hit.iv;
+  const iv = toInterval(item, timeZone);
+  intervalCache.set(item, { tz: timeZone, iv });
+  return iv;
+}
+
 export function buildContext(ds: Dataset, opts: EvalOptions, focusId?: Id): EvalContext {
   const releases = new Map(ds.releases.map((r) => [r.id, r]));
   const products = new Map(ds.products.map((p) => [p.id, p]));
   const envs = new Map(ds.environments.map((e) => [e.id, e]));
-  const cache = new Map<Timed, Interval>();
   return {
     ds,
     opts,
     focusId,
     active: ds.releases.filter((r) => r.status !== 'cancelled'),
-    interval: (item) => {
-      let iv = cache.get(item);
-      if (!iv) {
-        iv = toInterval(item, opts.timeZone);
-        cache.set(item, iv);
-      }
-      return iv;
-    },
+    interval: (item) => cachedInterval(item, opts.timeZone),
     release: (id) => releases.get(id),
     product: (id) => products.get(id),
     environment: (id) => envs.get(id),

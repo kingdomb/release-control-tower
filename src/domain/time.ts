@@ -96,25 +96,35 @@ export function isValidTimed(item: Timed): boolean {
 
 export const iso = (ms: number): string => new Date(ms).toISOString();
 
-/** Format for messages: "Tue 10 Mar 14:00" in `timeZone`. */
+const displayCache = new Map<string, Intl.DateTimeFormat>();
+
+function displayFormatter(kind: 'short' | 'time' | 'day', timeZone: string): Intl.DateTimeFormat {
+  const key = `${kind}|${timeZone}`;
+  let f = displayCache.get(key);
+  if (!f) {
+    const opts: Intl.DateTimeFormatOptions =
+      kind === 'short'
+        ? { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+        : kind === 'time'
+          ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+          : { year: 'numeric', month: '2-digit', day: '2-digit' };
+    f = new Intl.DateTimeFormat(kind === 'day' ? 'en-CA' : 'en-GB', { timeZone, ...opts });
+    displayCache.set(key, f);
+  }
+  return f;
+}
+
+/** Format for messages: "Tue 10 Mar, 14:00" in `timeZone`. */
 export function formatShort(ms: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(ms));
+  return displayFormatter('short', timeZone).format(new Date(ms));
 }
 
 export function formatTime(ms: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
+  return displayFormatter('time', timeZone).format(new Date(ms));
 }
 
-const dayKey = (ms: number, timeZone: string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+/** "YYYY-MM-DD" of the instant in `timeZone`. */
+export const dayKey = (ms: number, timeZone: string) => displayFormatter('day', timeZone).format(new Date(ms));
 
 /** "Tue 10 Mar, 14:00 – 16:00" on one day, otherwise both ends in full. */
 export function formatRange(iv: Interval, timeZone: string): string {
